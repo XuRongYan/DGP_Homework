@@ -51,6 +51,48 @@ void dijkstra(Surface_Mesh::SurfaceMesh &mesh,
 	}
 }
 
+double prim(Surface_Mesh::SurfaceMesh &mesh,
+			std::vector<Surface_Mesh::SurfaceMesh::Edge> &edges) {
+	auto visit = mesh.add_vertex_property<bool>("v:visited");
+	auto distances = mesh.add_vertex_property<double>("v:distances");
+	auto pre = mesh.add_vertex_property<Surface_Mesh::SurfaceMesh::Vertex>("v:pre");
+	double ans = 0;
+
+	for (const auto &v : mesh.vertices()) {
+		distances[v] = std::numeric_limits<double>::infinity();
+	}
+
+	distances[*mesh.vertices_begin()] = 0;
+
+	for (const auto &v : mesh.vertices()) {
+		Surface_Mesh::SurfaceMesh::Vertex vu(-1);
+		double MIN = std::numeric_limits<double>::infinity();
+		for (const auto &u : mesh.vertices()) {
+			if (!visit[u] && distances[u] < MIN) {
+				vu = u;
+				MIN = distances[u];
+			}
+		}
+
+		if (!mesh.is_valid(vu)) return ans;
+		visit[vu] = true;
+		auto e = mesh.find_edge(vu, pre[vu]);
+		if (mesh.is_valid(e)) edges.emplace_back(e);
+		ans += distances[vu];
+
+		for (const auto &u : mesh.vertices(v)) {
+			if (!visit[u] && distances[u] > mesh.edge_length(mesh.find_edge(u, v))) {
+				distances[u] = mesh.edge_length(mesh.find_edge(u, v));
+				pre[u] = v;
+			}
+		}
+	}
+	mesh.remove_vertex_property(pre);
+	mesh.remove_vertex_property(visit);
+	mesh.remove_vertex_property(distances);
+	return ans;
+}
+
 namespace xry_mesh {
 	/**
 	 * update SurfaceMesh points' positions
@@ -297,6 +339,17 @@ namespace xry_mesh {
 		mesh.remove_vertex_property(distances);
 		mesh.remove_vertex_property(visit);
 		return res;
+	}
+
+
+	/**
+	 * construct minimal spanning tree on triangle mesh
+	 * @param mesh
+	 * @return weight sum
+	 */
+	double getMST(Surface_Mesh::SurfaceMesh &mesh,
+				  std::vector<Surface_Mesh::SurfaceMesh::Edge> &edges) {
+		return prim(mesh, edges);
 	}
 
 	/**
